@@ -24,11 +24,8 @@ package org.jboss.wise.gwt.client.view;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.HasClickHandlers;
-import com.google.gwt.event.dom.client.KeyUpEvent;
-import com.google.gwt.event.dom.client.KeyUpHandler;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.Button;
-import com.google.gwt.user.client.ui.ComplexPanel;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.DisclosurePanel;
 import com.google.gwt.user.client.ui.DoubleBox;
@@ -43,9 +40,11 @@ import com.google.gwt.user.client.ui.Tree;
 import com.google.gwt.user.client.ui.ValueBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
-import java.text.ParseException;
 import java.util.HashMap;
-import java.util.Iterator;
+import org.jboss.wise.gwt.client.handlers.CheckBoxClickHandler;
+import org.jboss.wise.gwt.client.handlers.IntegerFieldValidator;
+import org.jboss.wise.gwt.client.handlers.LeafKeyUpHandler;
+import org.jboss.wise.gwt.client.handlers.NumberFieldValidator;
 import org.jboss.wise.gwt.client.presenter.EndpointConfigPresenter;
 import org.jboss.wise.gwt.client.ui.WiseTreeItem;
 import org.jboss.wise.gwt.client.util.TreeImageResource;
@@ -65,10 +64,6 @@ import org.jboss.wise.gwt.shared.tree.element.TreeElement;
  * Date: 3/9/15
  */
 public class EndpointConfigView extends Composite implements EndpointConfigPresenter.Display {
-
-   // GWT KeyCode does not provide code for period or comma.
-   private final int KEY_NUM_PERIOD = 190;
-   private final int KEY_NUM_COMMA = 188;
 
    MenuPanel menuPanel = new MenuPanel();
 
@@ -187,9 +182,9 @@ public class EndpointConfigView extends Composite implements EndpointConfigPrese
          if (widget instanceof ValueBox) {
             Label errorLabel = new Label("invalid input type");
             if (widget instanceof IntegerBox) {
-                  ((ValueBox) widget).addKeyUpHandler(new IntegerFieldValidator(treeItem, errorLabel));
+                  ((ValueBox) widget).addKeyUpHandler(new IntegerFieldValidator(treeItem, errorLabel, this));
             } else {
-               ((ValueBox) widget).addKeyUpHandler(new NumberFieldValidator(treeItem, errorLabel));
+               ((ValueBox) widget).addKeyUpHandler(new NumberFieldValidator(treeItem, errorLabel, this));
             }
          }
 
@@ -477,133 +472,6 @@ public class EndpointConfigView extends Composite implements EndpointConfigPrese
       }
    }
 
-
-   public class CheckBoxClickHandler implements ClickHandler {
-
-      private WiseTreeItem rootTreeItem;
-
-      public CheckBoxClickHandler(WiseTreeItem rootTreeItem) {
-
-         this.rootTreeItem = rootTreeItem;
-      }
-
-      public void onClick(ClickEvent event) {
-         SimpleCheckBox checkBox = (SimpleCheckBox) event.getSource();
-         boolean enable = checkBox.getValue();
-
-         // skip disabling root element but set value to be passed
-         if (rootTreeItem.getWTreeElement() != null) {
-            rootTreeItem.getWTreeElement().setNil(!enable);
-         }
-
-         enableAllChildren(enable, rootTreeItem);
-      }
-
-      private void enableAllChildren(boolean enable, WiseTreeItem treeItem) {
-
-         int cnt = treeItem.getChildCount();
-         for (int i = 0; i < cnt; i++) {
-            WiseTreeItem child = (WiseTreeItem) treeItem.getChild(i);
-
-            // disabled children remain disabled no matter the parent setting.
-            if (isChecked(child)) {
-               enableAllChildren(enable, child);
-            }
-
-            child.setEnableTreeItem(enable);
-         }
-      }
-
-      private boolean isChecked(WiseTreeItem child) {
-
-         boolean isValue = true;
-         if (child != null) {
-            SimpleCheckBox checkBox = child.getCheckBox();
-            if (checkBox != null) {
-               return checkBox.getValue();
-            }
-         }
-         return isValue;
-      }
-   }
-
-   private class LeafKeyUpHandler implements KeyUpHandler {
-      SimpleCheckBox checkBox;
-
-      public LeafKeyUpHandler(SimpleCheckBox checkBox) {
-
-         this.checkBox = checkBox;
-      }
-
-      @Override
-      public void onKeyUp(KeyUpEvent event) {
-
-         checkBox.setValue(true);
-      }
-   }
-
-   private class NumberFieldValidator implements KeyUpHandler {
-      WiseTreeItem wTreeItem;
-      ValueBox inputBox;
-      Label errorLabel;
-
-      public NumberFieldValidator (WiseTreeItem wTreeItem, Label errorLabel) {
-         this.wTreeItem = wTreeItem;
-         this.errorLabel = errorLabel;
-         init();
-         errorLabel.setVisible(false);
-         errorLabel.addStyleName("numberValidationError");
-
-      }
-
-      private void init() {
-
-         Widget widget = wTreeItem.getWidget();
-
-         if (widget instanceof HorizontalPanel) {
-
-            Iterator<Widget> itWidget = ((ComplexPanel) widget).iterator();
-            while (itWidget.hasNext()) {
-               Widget w = itWidget.next();
-               if (w instanceof ValueBox){
-                  inputBox = (ValueBox)w;
-                  break;
-               }
-            }
-
-            ((HorizontalPanel)widget).add(errorLabel);
-         }
-      }
-
-      @Override
-      public void onKeyUp(KeyUpEvent event) {
-
-         try {
-            if (event.getNativeKeyCode() == KEY_NUM_COMMA) {
-               throw new ParseException("", 0);
-            } else {
-               inputBox.getValueOrThrow();
-               String text = inputBox.getText();
-
-               //remove error msg only when valid number is present
-               if (text.indexOf(",") == -1) {
-                  inputBox.removeStyleName("numberValidationError");
-                  errorLabel.setVisible(false);
-                  wTreeItem.setValidationError(false);
-
-                  decValidationError(wTreeItem);
-               }
-            }
-         } catch(ParseException e) {
-            inputBox.addStyleName("numberValidationError");
-            errorLabel.setVisible(true);
-            wTreeItem.setValidationError(true);
-
-            incValidationError(wTreeItem);
-         }
-      }
-   }
-
    /**
     * Keep list of actively invalid fields.
     *
@@ -629,42 +497,6 @@ public class EndpointConfigView extends Composite implements EndpointConfigPrese
 
       if (validationMap.isEmpty()) {
          menuPanel.getNextButton().setEnabled(true);
-      }
-   }
-
-   private class IntegerFieldValidator extends NumberFieldValidator {
-
-      public IntegerFieldValidator (WiseTreeItem wTreeItem, Label errorLabel) {
-         super(wTreeItem, errorLabel);
-      }
-
-      @Override
-      public void onKeyUp(KeyUpEvent event) {
-
-         try {
-            if (event.getNativeKeyCode() == KEY_NUM_PERIOD  ||
-               event.getNativeKeyCode() == KEY_NUM_COMMA) {
-               throw new ParseException("", 0);
-            } else {
-               inputBox.getValueOrThrow();
-               String text = inputBox.getText();
-
-               //remove error msg only when valid number is present
-               if (text.indexOf(".") == -1 && text.indexOf(",") == -1) {
-                  inputBox.removeStyleName("numberValidationError");
-                  errorLabel.setVisible(false);
-                  wTreeItem.setValidationError(false);
-
-                  decValidationError(wTreeItem);
-               }
-            }
-         } catch(ParseException e) {
-            inputBox.addStyleName("numberValidationError");
-            errorLabel.setVisible(true);
-            wTreeItem.setValidationError(true);
-
-            incValidationError(wTreeItem);
-         }
       }
    }
 
