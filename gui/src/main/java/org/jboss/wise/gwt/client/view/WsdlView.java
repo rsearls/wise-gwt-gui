@@ -98,7 +98,7 @@ public class WsdlView extends Composite implements WsdlPresenter.Display {
 
         contentTable = new FlexTable();
         contentTable.addStyleName("wise-deployed-wsdl-table");
-        String rowStyleWidth = "40em";
+        String rowStyleWidth = "96%";
         contentTable.setWidth(rowStyleWidth);
         contentTable.getCellFormatter().setWidth(0, 0, rowStyleWidth);
         contentTable.getFlexCellFormatter().setVerticalAlignment(0, 0, DockPanel.ALIGN_TOP);
